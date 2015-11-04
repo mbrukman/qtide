@@ -241,8 +241,8 @@ void Term::load(QString s, bool d)
 // ---------------------------------------------------------------------
 void Term::pacman()
 {
-  var_cmd("require 'pacman ~addons/ide/qt/pacman.ijs'");
-  var_cmd("runpacman_jpacman_ 0");
+  var_cmddo("require 'pacman ~addons/ide/qt/pacman.ijs'");
+  var_cmddo("runpacman_jpacman_ 0");
 }
 
 // ---------------------------------------------------------------------

@@ -179,7 +179,7 @@ void Config::init()
 
   Ascii="+"==dors("{.9!:6$0");
   if (Ascii!=(BoxForm==1)) {
-    var_cmd("boxdraw_j_ "+QString::number(BoxForm));
+    jcon->cmd("boxdraw_j_ "+QString::number(BoxForm));
     Ascii=!Ascii;
   }
 
@@ -561,12 +561,6 @@ int state_run(int argc, char *argv[], char *lib, bool fhs, int fshowide, void *j
 //  return state_fini();  // will be executed in the 2nd call to state_run()
   term->fini();
   return 0;
-}
-
-// ---------------------------------------------------------------------
-void var_cmd(QString s)
-{
-  jcon->cmd(s);
 }
 
 // ---------------------------------------------------------------------

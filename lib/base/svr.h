@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <list>
 
 class Jcon : public QObject
 
@@ -15,6 +16,7 @@ public:
   void cmd(QString s);
   void cmddo(QString s, bool forceexec = false);
   void cmddo(std::string s, bool forceexec = false);
+  void execSentence();
   QString cmdr(QString s);
   int exec();
   void immex(QString s);
@@ -22,7 +24,7 @@ public:
   void quit();
   void set(QString s,QString t);
 
-  QStringList Sentence;
+  std::list <std::string> Sentence;
 
 public slots:
   void input();

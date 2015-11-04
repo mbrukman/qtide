@@ -33,6 +33,7 @@ C* _stdcall Jinput(J jt, C*);
 void _stdcall Joutput(J jt, int type, C* s);
 
 static bool ifcmddo=false;
+static bool ifexecsentence=false;
 static bool inputready=false;
 static QString inputx;
 bool jecallback=false;
@@ -49,6 +50,7 @@ static QEventLoop *jevloop;
 static int cnt=0;
 
 // ---------------------------------------------------------------------
+// used when system is initialized. Afterwards use cmddo.
 void Jcon::cmd(QString s)
 {
   jedo((char *)q2s(s).c_str());
@@ -70,11 +72,11 @@ void Jcon::cmddo(QString s, bool forceexec)
 void Jcon::cmddo(string s, bool forceexec)
 {
   ifcmddo=true;
+  Sentence.push_back(s);
   if (jecallback && !forceexec) {
-    Sentence.append(s2q(s));
     jevloop->exit();
   } else
-    jedo((char *)s.c_str());
+    execSentence();
 }
 
 // ---------------------------------------------------------------------
@@ -83,7 +85,6 @@ int Jcon::exec()
   QString s;
   Q_UNUSED(s);
   if (jdllproc) return 0;
-
   while(1) {
     cnt++;
     tedit->prompt="   ";
@@ -93,17 +94,27 @@ int Jcon::exec()
     evloop->exec(QEventLoop::AllEvents|QEventLoop::WaitForMoreEvents);
     jecallback=false;
     if (quitx) break;
-    while(!Sentence.isEmpty()) {
-      s=Sentence.at(0);
-      Sentence.removeFirst();
-      if ((int)sizeof(inputline)<s.size()) exit(100);
-      strcpy(inputline,q2s(s).c_str());
-      jedo(inputline);
-      jecallback=false;
-    }
+    execSentence();
   }
   jefree();
   return 0;
+}
+
+// ---------------------------------------------------------------------
+// execute any strings in Sentence
+void Jcon::execSentence()
+{
+  if (ifexecsentence) return;
+  ifexecsentence=true;
+  string s;
+  while(!Sentence.empty()) {
+    s=Sentence.front();
+    Sentence.pop_front();
+    if ((int)sizeof(inputline)<s.size()) exit(100);
+    jedo((char *)s.c_str());
+    jecallback=false;
+  }
+  ifexecsentence=false;
 }
 
 // ---------------------------------------------------------------------
@@ -147,7 +158,7 @@ int Jcon::init(int argc, char* argv[])
 // run command
 void Jcon::immex(QString s)
 {
-  Sentence.append(s);
+  Sentence.push_back(q2s(s));
   QTimer *timer = new QTimer(this);
   timer->setSingleShot(true);
   connect(timer, SIGNAL(timeout()), jcon, SLOT(input()));
@@ -184,24 +195,24 @@ char* _stdcall Jinput(J jt, char* p)
 {
   Q_UNUSED(jt);
   Q_ASSERT(tedit);
-  QString s;
+  string s;
   inputready=false;
   logged=true;
   if (!jecallback) {
     jcon->Sentence.clear();
     jecallback=true;
   }
-  if (jcon->Sentence.isEmpty()) {
+  if (jcon->Sentence.empty()) {
     tedit->prompt=c2q(p);
     tedit->setprompt();
     jevloop->exec(QEventLoop::AllEvents|QEventLoop::WaitForMoreEvents);
   }
-  if (!jcon->Sentence.isEmpty()) {
-    s=jcon->Sentence.at(0);
-    jcon->Sentence.removeFirst();
+  if (!jcon->Sentence.empty()) {
+    s=jcon->Sentence.front();
+    jcon->Sentence.pop_front();
   }
   if ((int)sizeof(inputline)<s.size()) exit(100);
-  strcpy(inputline,q2s(s).c_str());
+  strcpy(inputline,s.c_str());
   return inputline;
 }
 

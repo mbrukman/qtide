@@ -668,7 +668,7 @@ void writewinstate(Bedit *w)
 {
   if (w==0) {
     sets("WinText_jqtide_","");
-    var_cmd("WinSelect_jqtide_=: $0");
+    var_cmddo("WinSelect_jqtide_=: $0");
     return;
   }
   QTextCursor c=w->textCursor();
@@ -678,7 +678,7 @@ void writewinstate(Bedit *w)
   QString s=QString::number(b)+" "+QString::number(e);
   sets("WinText_jqtide_",q2s(t));
   sets("inputx_jrx_",q2s(s));
-  var_cmd("WinSelect_jqtide_=: 0 \". inputx_jrx_");
+  var_cmddo("WinSelect_jqtide_=: 0 \". inputx_jrx_");
 }
 
 // ---------------------------------------------------------------------
