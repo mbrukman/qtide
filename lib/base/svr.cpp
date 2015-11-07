@@ -33,10 +33,10 @@ C* _stdcall Jinput(J jt, C*);
 void _stdcall Joutput(J jt, int type, C* s);
 
 static bool ifcmddo=false;
-static bool ifexecsentence=false;
 static bool inputready=false;
 static QString inputx;
 bool jecallback=false;
+bool ifexecsentence=false;
 static bool logged=false;
 static bool quitx=false;
 bool runshow=false;
@@ -199,7 +199,15 @@ char* _stdcall Jinput(J jt, char* p)
   inputready=false;
   logged=true;
   if (!jecallback) {
-    jcon->Sentence.clear();
+    // On initial entry to suspension, purge sentences typed ahead by the user.
+    // but DO NOT remove calls to wdhandler[x], because (1) some event sequences
+    // such as mbldown-mblup-mbldbl must be kept intact, and (2) WdqQueue must stay
+    // synced with the wdhandlerx components of Sentence
+    for(size_t i = jcon->Sentence.size();i>0;--i) {
+      string s=jcon->Sentence.front();
+      jcon->Sentence.pop_front();
+      if(s.find("wdhandler")>=0)jcon->Sentence.push_back(s);
+    }
     jecallback=true;
   }
   if (jcon->Sentence.empty()) {

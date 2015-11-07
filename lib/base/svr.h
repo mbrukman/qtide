@@ -34,5 +34,6 @@ public slots:
 bool svr_init(int argc, char* argv[]);
 extern Jcon *jcon;
 extern bool jecallback;
+extern bool ifexecsentence;
 
 #endif
