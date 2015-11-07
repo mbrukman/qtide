@@ -540,7 +540,7 @@ void Form::signalevent(Child *c, QKeyEvent *e)
   }
   string fc=getfocus();
   if (fc.size()) lastfocus=fc;
-  if (jecallback) {
+  if (ifexecsentence) {
     // wd'q' normally collects the information lying in the scattered
     // globals and returns that to wdhandler.
     // in callback mode (suspension or waiting for user input), we may
