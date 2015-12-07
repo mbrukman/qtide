@@ -13,27 +13,26 @@ class Jcon : public QObject
 
 public:
   Jcon() {};
-  void cmd(QString s);
-  void cmddo(QString s, bool forceexec = false);
-  void cmddo(std::string s, bool forceexec = false);
-  void execSentence();
-  QString cmdr(QString s);
+  void cmd(std::string s);
+  void cmddo(std::string s);
+  void cmddop(std::string s);
+  void cmdSentence(std::string s);
+  QString cmdr(std::string s);
   int exec();
-  void immex(QString s);
+  void immex(std::string s);
   int init(int argc, char* argv[]);
   void quit();
-  void set(QString s,QString t);
+  void set(QString s,std::string t);
 
   std::list <std::string> Sentence;
 
 public slots:
-  void input();
-
+  void cmdSentences();
 };
 
 bool svr_init(int argc, char* argv[]);
 extern Jcon *jcon;
 extern bool jecallback;
-extern bool ifexecsentence;
+extern std::string wdQuery;
 
 #endif

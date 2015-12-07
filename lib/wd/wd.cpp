@@ -45,6 +45,7 @@
 #include "../base/eview.h"
 #include "../base/qtstate.h"
 #include "../base/state.h"
+#include "../base/svr.h"
 #include "../base/tedit.h"
 #include "../base/term.h"
 extern char* jegetlocale();
@@ -52,6 +53,7 @@ extern QApplication *app;
 extern Term * term;
 extern "C" Dllexport void dirmatch(const char *s,const char *t);
 extern "C" Dllexport void openj(const char *s);
+// extern string wdQuery;
 
 #include "math.h"
 
@@ -135,8 +137,6 @@ static bool notab();
 static int setchild(string id);
 static string formchildid();
 
-static list<string> wdqQueue;
-
 Cmd cmd;
 static Child *cc=0;
 Form *form=0;
@@ -194,8 +194,6 @@ void wd1()
     }
     if (c=="q")
       wdq();
-    else if (c=="qpop")
-      wdqQueueRemove();
     else if (c=="beep")
       wdbeep();
     else if (c=="bin")
@@ -916,43 +914,8 @@ void wdq()
     error("extra parameters: " + p);
     return;
   }
-  if(wdqQueue.empty()) {
-    // normal path (no events pending in suspension)
-    wdstate(evtform,1);
-  } else {
-    // wdqQueue holds 'pre-executed' results from wd'q' that were compiled
-    // to allow for multiple events during suspension.  Return the first one,
-    // which matches the event being executed
-    result = wdqQueue.front();
-    rc = -2;
-  }
-}
-
-// ---------------------------------------------------------------------
-void wdqQueueAdd(bool addatfront)
-{
-  // called to pre-execute wd'q' for events during suspension.
-  wdstate(evtform,1);
-  // keep the events in the order they will execute in: FIFO unless there
-  // is a priority event, whose result we add at the front, since it is about to execute
-  // immediately
-  if(addatfront) wdqQueue.push_front(result);
-  else wdqQueue.push_back(result);
-}
-// ---------------------------------------------------------------------
-void wdqQueueInit()
-{
-  // not used - the interlock between wdqQueueAdd and wdqQueueRemove is
-  // airtight.  An item is added to wdqQueue only when a Sentence for wdhandlerx
-  // is scheduled for execution, and wdhandlerx ends with wd'qpop', so there
-  // is no possibility of loss of sync unless J crashes
-  wdqQueue.clear();
-}
-// ---------------------------------------------------------------------
-void wdqQueueRemove()
-{
-  // called by wd'qpop', which is executed at the end of wdhandlerx
-  wdqQueue.pop_front();
+  result = wdQuery;
+  rc = -2;
 }
 
 // ---------------------------------------------------------------------
@@ -1127,15 +1090,19 @@ void wdqueries(string s)
     return;
   }
 // queries that form is needed
-  if (noform()) return;
-  if (s=="qhwndp")
+  if (s=="qhwndp") {
+    if (noform()) return;
     result=form->hsform();
-  else if (s=="qform")
+  } else if (s=="qform") {
+    if (noform()) return;
     result=form->qform();
 // queries expecting parameter
-  else if (!p.size())
-    error("missing parameters");
-  else if (s=="qhwndc") {
+  } else if (s=="qhwndc") {
+    if (noform()) return;
+    if (!p.size()) {
+      error("missing parameters");
+      return;
+    }
     Child *cc;
     if (p=="_") p=formchildid();
     if ((cc=form->id2child(p))) result=p2s(cc);
@@ -1143,6 +1110,11 @@ void wdqueries(string s)
       error("no child selected: " + p);
     if (rc!=1) form->child=cc;
   } else if (s=="qchildxywh") {
+    if (noform()) return;
+    if (!p.size()) {
+      error("missing parameters");
+      return;
+    }
     Child *cc;
     if (p=="_") p=formchildid();
     if ((cc=form->id2child(p)) && cc->widget) {

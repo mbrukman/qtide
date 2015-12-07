@@ -32,14 +32,11 @@ using namespace std;
 C* _stdcall Jinput(J jt, C*);
 void _stdcall Joutput(J jt, int type, C* s);
 
-static bool ifcmddo=false;
-static bool inputready=false;
 static QString inputx;
 bool jecallback=false;
-bool ifexecsentence=false;
-static bool logged=false;
-static bool quitx=false;
 bool runshow=false;
+bool runterm=false;
+std::string wdQuery="";
 
 void logbin(const char*s,int n);
 void logcs(char *msg);
@@ -47,87 +44,97 @@ QString runshowclean(QString s);
 Jcon *jcon=0;
 QEventLoop *evloop;
 static QEventLoop *jevloop;
-static int cnt=0;
 
 // ---------------------------------------------------------------------
-// used when system is initialized. Afterwards use cmddo.
-void Jcon::cmd(QString s)
+// usual way to call J when not suspended
+void Jcon::cmd(string s)
 {
-  jedo((char *)q2s(s).c_str());
+  jedo((char *)s.c_str());
 }
 
 // ---------------------------------------------------------------------
-QString Jcon::cmdr(QString s)
+// add expression to Sentence and run all Sentence
+void Jcon::cmddo(string s)
 {
-  return s2q(dors(q2s(s)));
-}
-
-// ---------------------------------------------------------------------
-void Jcon::cmddo(QString s, bool forceexec)
-{
-  cmddo(q2s(s), forceexec);
-}
-
-// ---------------------------------------------------------------------
-void Jcon::cmddo(string s, bool forceexec)
-{
-  ifcmddo=true;
   Sentence.push_back(s);
-  if (jecallback && !forceexec) {
+  if (jecallback)
     jevloop->exit();
-  } else
-    execSentence();
+  else
+    cmdSentences();
+}
+
+// ---------------------------------------------------------------------
+// execute priority expression immediately, then
+// set up to run all Sentence
+// e.g. used for isigraph paint event
+void Jcon::cmddop(string s)
+{
+  cmdSentence(s);
+  if (jecallback)
+    jevloop->exit();
+  else {
+    QTimer *timer = new QTimer(this);
+    timer->setSingleShot(true);
+    connect(timer, SIGNAL(timeout()), jcon, SLOT(cmdSentences()));
+    timer->start();
+  }
+}
+
+// ---------------------------------------------------------------------
+// run single Sentence
+void Jcon::cmdSentence(string s)
+{
+  size_t n=s.find('\0');
+  if (n==string::npos)
+    cmd(s);
+  else {
+    wdQuery=s.substr(n+1,string::npos);
+    cmd(s.substr(0,n));
+  }
+  jecallback=false;
+}
+
+// ---------------------------------------------------------------------
+// run all Sentences
+void Jcon::cmdSentences()
+{
+  string s;
+  while(!Sentence.empty()) {
+    s=Sentence.front();
+    Sentence.pop_front();
+    cmdSentence(s);
+  }
+  if (runterm)
+    tedit->setprompt();
+  runterm=false;
+}
+
+// ---------------------------------------------------------------------
+// execute J expression and return result
+QString Jcon::cmdr(string s)
+{
+  return s2q(dors(s));
 }
 
 // ---------------------------------------------------------------------
 int Jcon::exec()
 {
-  QString s;
-  Q_UNUSED(s);
   if (jdllproc) return 0;
-  while(1) {
-    cnt++;
-    tedit->prompt="   ";
-    tedit->setprompt();
-    inputready=false;
-    logged=true;
-    evloop->exec(QEventLoop::AllEvents|QEventLoop::WaitForMoreEvents);
-    jecallback=false;
-    if (quitx) break;
-    execSentence();
-  }
+  evloop->exec(QEventLoop::AllEvents|QEventLoop::WaitForMoreEvents);
   jefree();
   return 0;
 }
 
 // ---------------------------------------------------------------------
-// execute any strings in Sentence
-void Jcon::execSentence()
-{
-  if (ifexecsentence) return;
-  ifexecsentence=true;
-  string s;
-  while(!Sentence.empty()) {
-    s=Sentence.front();
-    Sentence.pop_front();
-    if ((int)sizeof(inputline)<s.size()) exit(100);
-    jedo((char *)s.c_str());
-    jecallback=false;
-  }
-  ifexecsentence=false;
-}
-
-// ---------------------------------------------------------------------
 int Jcon::init(int argc, char* argv[])
 {
-
   void* callbacks[] = {(void*)Joutput,0,(void*)Jinput,0,(void*)SMCON};
   int type;
 
   evloop=new QEventLoop();
   jevloop=new QEventLoop();
 
-  if (!jdllproc && (void *)-1==jdlljt) jepath(argv[0]);     // get path to JFE folder
+  if (!jdllproc && (void *)-1==jdlljt) jepath(argv[0]);  // get path to JFE folder
   jt=jeload(callbacks);
   if(!jt && (void *)-1==jdlljt) {
     char m[1000];
@@ -155,38 +162,28 @@ int Jcon::init(int argc, char* argv[])
 }
 
 // ---------------------------------------------------------------------
-// run command
-void Jcon::immex(QString s)
+// run immex command
+void Jcon::immex(string s)
 {
-  Sentence.push_back(q2s(s));
+  Sentence.push_back(s);
   QTimer *timer = new QTimer(this);
   timer->setSingleShot(true);
-  connect(timer, SIGNAL(timeout()), jcon, SLOT(input()));
+  connect(timer, SIGNAL(timeout()), jcon, SLOT(cmdSentences()));
   timer->start();
-}
-
-// ---------------------------------------------------------------------
-void Jcon::input()
-{
-  ifcmddo=false;
-  jecallback=jecallback && jevloop->isRunning();
-  if (jecallback)
-    jevloop->exit();
-  else
-    evloop->exit();
 }
 
 // ---------------------------------------------------------------------
 void Jcon::quit()
 {
-  quitx=true;
-  input();
+  // is needed?
+  //~ quitx=true;
+  //~ input();
 }
 
 // ---------------------------------------------------------------------
-void Jcon::set(QString s, QString t)
+void Jcon::set(QString s, string t)
 {
-  sets(s,q2s(t));
+  sets(s,t);
 }
 
 // ---------------------------------------------------------------------
@@ -194,24 +191,21 @@ void Jcon::set(QString s, QString t)
 char* _stdcall Jinput(J jt, char* p)
 {
   Q_UNUSED(jt);
+  Q_UNUSED(p);
   Q_ASSERT(tedit);
   string s;
-  inputready=false;
-  logged=true;
   if (!jecallback) {
     // On initial entry to suspension, purge sentences typed ahead by the user.
-    // but DO NOT remove calls to wdhandler[x], because (1) some event sequences
-    // such as mbldown-mblup-mbldbl must be kept intact, and (2) WdqQueue must stay
-    // synced with the wdhandlerx components of Sentence
-    for(size_t i = jcon->Sentence.size();i>0;--i) {
+    // but DO NOT remove calls to wdhandler[x], because some event sequences
+    // such as mbldown-mblup-mbldbl must be kept intact
+    for(size_t i = jcon->Sentence.size(); i>0; --i) {
       string s=jcon->Sentence.front();
       jcon->Sentence.pop_front();
-      if(s.find("wdhandler")>=0)jcon->Sentence.push_back(s);
+      if(s.find("wdhandler") != string::npos)jcon->Sentence.push_back(s);
     }
     jecallback=true;
   }
   if (jcon->Sentence.empty()) {
-    tedit->prompt=c2q(p);
     tedit->setprompt();
     jevloop->exec(QEventLoop::AllEvents|QEventLoop::WaitForMoreEvents);
   }
@@ -219,6 +213,10 @@ char* _stdcall Jinput(J jt, char* p)
     s=jcon->Sentence.front();
     jcon->Sentence.pop_front();
   }
+  size_t n=s.find('\0');
+  if (n!=string::npos)
+    wdQuery=s.substr(n+1,string::npos);
+  s=s.substr(0,n);
   if ((int)sizeof(inputline)<s.size()) exit(100);
   strcpy(inputline,s.c_str());
   return inputline;
@@ -226,7 +224,6 @@ char* _stdcall Jinput(J jt, char* p)
 
 // ---------------------------------------------------------------------
 // J calls for output
-// logged isn't used
 
 void _stdcall Joutput(J jt,int type, char* s)
 {
@@ -245,18 +242,12 @@ void _stdcall Joutput(J jt,int type, char* s)
   if (MTYOER==type && runshow)
     t=runshowclean(t);
 
-  if (MTYOFILE==type && ifcmddo)
-    tedit->append_smoutput(t);
-  else if (MTYOLOG!=type)
-    tedit->append(t);
-  else {
-    if (logged) {
-      tedit->append(t);
-    } else {
-      logged=true;
-      tedit->append("");
-    }
-  }
+// ifcmddo was true if called from jcmddo (term + other commands)
+// not sure if needed now
+// if (MTYOFILE==type && ifcmddo)
+//~ tedit->append_smoutput(t);
+//~ else
+  tedit->append(t);
 }
 
 // ---------------------------------------------------------------------

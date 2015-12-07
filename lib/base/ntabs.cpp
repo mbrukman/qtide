@@ -66,9 +66,11 @@ void Ntabs::fileChanged(const QString &path)
   if (NoEvents) return;
   int index=getfileindex(path);
   Nedit *e=(Nedit *)widget(index);
+  if (e->pendingReload) return;
   if (e->text==cfread(e->file)) return;
   QString m="File contents changed on disk: " + e->sname;
   m=m+"\n\n" + "Reload from disk?";
+  e->pendingReload=true;
   if (queryNY("File Changed",m)) {
     noevents(1);
     e->text = cfread(e->file);
@@ -76,6 +78,7 @@ void Ntabs::fileChanged(const QString &path)
     setmodified(index,false);
     noevents(0);
   }
+  e->pendingReload=false;
 }
 
 // ---------------------------------------------------------------------
